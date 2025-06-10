@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document Research Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h2 { color: #2c3e50; }
+        #upload-section, #ask-section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .response { background-color: #f9f9f9; padding: 10px; margin-top: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<h1>📄 Document Research & Theme Chatbot</h1>
+
+<div id="upload-section">
+    <h2>Upload PDFs</h2>
+    <input type="file" id="fileInput" multiple />
+    <button onclick="uploadFiles()">Upload</button>
+    <div id="uploadResult" class="response"></div>
+</div>
+
+<div id="ask-section">
+    <h2>Ask a Question</h2>
+    <input type="text" id="queryInput" placeholder="Type your question..." style="width: 80%;" />
+    <button onclick="askQuestion()">Ask</button>
+    <div id="answerResult" class="response"></div>
+</div>
+
+<script>
+    async function uploadFiles() {
+        const files = document.getElementById('fileInput').files;
+        if (files.length === 0) {
+            alert("Please select at least one PDF file.");
+            return;
+        }
+
+        const formData = new FormData();
+        for (let file of files) {
+            formData.append('files', file);
+        }
+
+        try {
+            const response = await fetch('/upload/', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                document.getElementById('uploadResult').innerHTML = `<strong>Error:</strong> ${data.error}`;
+            } else {
+                const filenames = data.filenames.join(', ');
+                const themes = data.themes.join(', ');
+                document.getElementById('uploadResult').innerHTML = `
+                    <strong>Uploaded:</strong> ${filenames}<br/>
+                    <strong>Extracted Themes:</strong> ${themes}
+                `;
+            }
+        } catch (error) {
+            document.getElementById('uploadResult').innerHTML = `<strong>Error:</strong> ${error}`;
+        }
+    }
+
+    async function askQuestion() {
+        const query = document.getElementById('queryInput').value;
+        if (!query) {
+            alert("Please enter a question.");
+            return;
+        }
+
+        try {
+            const response = await fetch('/ask/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                document.getElementById('answerResult').innerHTML = `<strong>Error:</strong> ${data.error}`;
+            } else {
+                document.getElementById('answerResult').innerHTML = `
+                    <strong>Query:</strong> ${data.query}<br/>
+                    <strong>Answer:</strong> ${data.answer}
+                `;
+            }
+        } catch (error) {
+            document.getElementById('answerResult').innerHTML = `<strong>Error:</strong> ${error}`;
+        }
+    }
+</script>
+
+</body>
+</html>
