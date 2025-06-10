@@ -1,8 +1,8 @@
-import os
-from langchain.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import FAISS
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
 from keybert import KeyBERT
+from transformers import pipeline
 
 def load_and_split_documents(file_paths, chunk_size=1000, chunk_overlap=200):
     all_texts = []
@@ -23,41 +23,14 @@ def extract_themes(text_chunks, top_n=10):
     keywords = kw_model.extract_keywords(content, top_n=top_n)
     return [kw[0] for kw in keywords]
 
-from paddleocr import PaddleOCR
-import fitz  # PyMuPDF
-import os
+# Load model only when called to reduce startup memory
+_generator = None
 
-ocr_model = PaddleOCR(use_angle_cls=True, lang='en')
-
-def extract_text_with_ocr(pdf_path):
-    text = ""
-    pdf_doc = fitz.open(pdf_path)
-    for page_index in range(len(pdf_doc)):
-        page = pdf_doc[page_index]
-        pix = page.get_pixmap()
-        image_path = f"temp_page_{page_index}.png"
-        pix.save(image_path)
-
-        result = ocr_model.ocr(image_path, cls=True)
-        for line in result[0]:
-            text += line[1][0] + " "
-        os.remove(image_path)
-    return text
-from transformers import pipeline
-
-# Load once at startup
-qa_pipeline = pipeline("text2text-generation", model="mistralai/Mistral-7B-Instruct-v0.1")
-
-def generate_answer_with_local_llm(query, context):
-    prompt = f"""Answer the following question based on the context below. Cite relevant paragraphs if useful.
-
-Query: {query}
-
-Context:
-{context}
-
-Answer:"""
-
-    result = qa_pipeline(prompt, max_new_tokens=300)[0]['generated_text']
-    return result
-
+def generate_answer_with_local_llm(question: str, context: str) -> str:
+    global _generator
+    if _generator is None:
+        _generator = pipeline("text2text-generation", model="google/flan-t5-base")
+    
+    prompt = f"Context: {context}\n\nQuestion: {question}\nAnswer:"
+    result = _generator(prompt, max_new_tokens=256)[0]['generated_text']
+    return result.strip()
